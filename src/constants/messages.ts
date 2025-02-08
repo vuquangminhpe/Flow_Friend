@@ -1,7 +1,7 @@
 import { MediaTypeQuery } from './enums'
 
 export const USERS_MESSAGES = {
-<<<<<<< HEAD
+
   VALIDATION_ERROR: 'Validation error',
   INVALID_USER_ID: 'Invalid user id',
   NAME_IS_REQUIRED: 'Name is required',
@@ -180,17 +180,4 @@ export const STORIES_MESSAGE = {
   CONTENT_MUST_NOT_BE_EMPTY: 'Content must not be empty',
   CAPTION_MUST_BE_NOT_BE_EMPTY: 'Caption must not be empty'
 }
-=======
 
-
-    // reset-password, verify-email, resend-verify-email,forgot-password
-    EMAIL_ALREADY_VERIFIED_BEFORE: 'Email already verified before',
-    EMAIL_VERIFY_SUCCESS: 'Email verify success',
-    RESEND_VERIFY_EMAIL_SUCCESS: 'Resent email verify success',
-    CHECK_EMAIL_TO_RESET_PASSWORD: 'Check email to reset password',
-    FORGOT_PASSWORD_TOKEN_IS_REQUIRED: 'Forgot password token is required',
-    VERIFY_FORGOT_PASSWORD_SUCCESS: 'Verify forgot password success',
-    FORGOT_PASSWORD_TOKEN_INVALID: 'Forgot password token invalid',
-    RESET_PASSWORD_SUCCESS: 'Reset password success',
-} as const
->>>>>>> 91e34684b4d49ce6794d2205f35ad036ac00d979

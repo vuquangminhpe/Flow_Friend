@@ -9,10 +9,121 @@ import databaseService from './database.services'
 import { signToken } from '~/utils/jwt'
 import { TokenType, UserVerifyStatus } from '~/constants/enums'
 import RefreshToken from '~/models/schemas/RefreshToken.schema'
+import { verifyEmail as sendVerifyEmail, verifyEmail, verifyForgotPassword } from '~/utils/sendmail'
 
 config()
 
 class UserService {
+
+  private signAccessAndRefreshToken({ user_id, verify }: { user_id: string; verify: UserVerifyStatus }) {
+    return Promise.all([this.signAccessToken({ user_id, verify }), this.signRefreshToken({ user_id, verify })])
+  }
+
+  private forgotPasswordToken({ user_id, verify }: { user_id: string; verify: UserVerifyStatus }) {
+    return signToken({
+      payload: {
+        user_id,
+        user_type: TokenType.ForgotPasswordToken,
+        verify
+      },
+      privateKey: envConfig.secretOnPublicKey_Forgot as string,
+
+      optional: {
+        expiresIn: envConfig.expiresIn_forgot_token
+      }
+    })
+  }
+  private signEmailVerifyToken({ user_id, verify }: { user_id: string; verify: UserVerifyStatus }) {
+    return signToken({
+      payload: {
+        user_id,
+        user_type: TokenType.EmailVerifyToken,
+        verify
+      },
+      privateKey: envConfig.secretOnPublicKey_Email as string,
+
+      optional: {
+        expiresIn: envConfig.expiresIn_email_token
+      }
+    })
+  }
+
+  async verifyEmail(user_id: string) {
+    //cật nhật giá trị có thể dùng $$NOW => ném vào [] mới sử dụng được hoặc $curentDate
+    await databaseService.users.updateOne(
+      { _id: new ObjectId(user_id) },
+      {
+        $set: {
+          email_verify_token: '',
+          verify: UserVerifyStatus.Verified
+        },
+        $currentDate: {
+          updated_at: true
+        }
+      }
+    )
+    const [access_token, refresh_token] = await this.signAccessAndRefreshToken({
+      user_id,
+      verify: UserVerifyStatus.Verified
+    })
+    return {
+      access_token,
+      refresh_token
+    }
+  }
+  async resendVerifyEmail(user_id: string) {
+    const email_verify_token = await this.signEmailVerifyToken({ user_id, verify: UserVerifyStatus.Unverified })
+
+    await databaseService.users.updateOne(
+      { _id: new ObjectId(user_id) },
+      {
+        $set: {
+          email_verify_token
+        },
+        $currentDate: {
+          updated_at: true
+        }
+      }
+    )
+    return {
+      message: USERS_MESSAGES.RESEND_VERIFY_EMAIL_SUCCESS
+    }
+  }
+
+  async forgotPassword({ user_id, verify }: { user_id: string; verify: UserVerifyStatus }) {
+    const forgot_password_token = await this.forgotPasswordToken({ user_id, verify: verify })
+    const user = await databaseService.users.findOne({ _id: new ObjectId(user_id) })
+    await databaseService.users.updateOne(
+      { _id: new ObjectId(user_id) },
+      {
+        $set: {
+          forgot_password_token
+        },
+        $currentDate: {
+          updated_at: true
+        }
+      }
+    )
+    verifyForgotPassword(user?.email as string, forgot_password_token)
+    return {
+      message: USERS_MESSAGES.CHECK_EMAIL_TO_RESET_PASSWORD
+    }
+  }
+
+  async resetPassword(user_id: string, password: string) {
+    await databaseService.users.updateOne(
+      { _id: new ObjectId(user_id) },
+      {
+        $set: {
+          forgot_password_token: '',
+          password: hashPassword(password)
+        },
+        $currentDate: {
+          updated_at: true
+        }
+      }
+    )
+  }
 
   private signAccessToken({ user_id, verify }: { user_id: string; verify: UserVerifyStatus }) {
     return signToken({
@@ -78,9 +189,9 @@ class UserService {
       message: USERS_MESSAGES.FOLLOWER_SUCCESS
     }
   }
-  
 
-  
+
+
 }
 const usersService = new UserService()
 export default usersService
