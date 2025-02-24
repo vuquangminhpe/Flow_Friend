@@ -9,6 +9,7 @@ import databaseService from './database.services'
 import { signToken } from '~/utils/jwt'
 import { TokenType, UserVerifyStatus } from '~/constants/enums'
 import RefreshToken from '~/models/schemas/RefreshToken.schema'
+import { verifyEmail as sendVerifyEmail, verifyEmail, verifyForgotPassword } from '~/utils/sendmail'
 
 config()
 
@@ -79,7 +80,7 @@ class UserService {
     }
   }
 
-  async unFollow(user_id:string, followed_user_id:string){
+  async unFollow(user_id: string, followed_user_id: string) {
     const user_follower = await databaseService.followers.findOne({
       user_id: new ObjectId(user_id),
       followed_user_id: new ObjectId(followed_user_id)
@@ -93,23 +94,103 @@ class UserService {
       user_id: new ObjectId(user_id),
       followed_user_id: new ObjectId(followed_user_id)
     })
-return {
-  message: USERS_MESSAGES.UN_FOLLOWER_SUCCESS
-  
-}}
+    return {
+      message: USERS_MESSAGES.UN_FOLLOWER_SUCCESS
+
+    }
+  }
 
   async getFollowing(user_id: string) {
-  const result = await databaseService.followers.find({ user_id: new ObjectId(user_id) }).toArray()
+    const result = await databaseService.followers.find({ user_id: new ObjectId(user_id) }).toArray()
 
-  return result
+    return result
   }
 
   async getFollowers(user_id: string) {
     const result = await databaseService.followers.find({ followed_user_id: new ObjectId(user_id) }).toArray()
-  
+
     return result
+  }
+
+  async verifyEmail(user_id: string) {
+    //cật nhật giá trị có thể dùng $$NOW => ném vào [] mới sử dụng được hoặc $curentDate
+    await databaseService.users.updateOne(
+      { _id: new ObjectId(user_id) },
+      {
+        $set: {
+          email_verify_token: '',
+          verify: UserVerifyStatus.Verified
+        },
+        $currentDate: {
+          updated_at: true
+        }
+      }
+    )
+    
+    const [access_token, refresh_token] = await this.signAccessAndRefreshToken({
+      user_id,
+      verify: UserVerifyStatus.Verified
+    })
+    return {
+      access_token,
+      refresh_token
     }
+  }
+  async resendVerifyEmail(user_id: string) {
+    const email_verify_token = await this.signEmailVerifyToken({ user_id, verify: UserVerifyStatus.Unverified })
+
+    await databaseService.users.updateOne(
+      { _id: new ObjectId(user_id) },
+      {
+        $set: {
+          email_verify_token
+        },
+        $currentDate: {
+          updated_at: true
+        }
+      }
+    )
+    return {
+      message: USERS_MESSAGES.RESEND_VERIFY_EMAIL_SUCCESS
+    }
+  }
+
+  async forgotPassword({ user_id, verify }: { user_id: string; verify: UserVerifyStatus }) {
+    const forgot_password_token = await this.forgotPasswordToken({ user_id, verify: verify })
+    const user = await databaseService.users.findOne({ _id: new ObjectId(user_id) })
+    await databaseService.users.updateOne(
+      { _id: new ObjectId(user_id) },
+      {
+        $set: {
+          forgot_password_token
+        },
+        $currentDate: {
+          updated_at: true
+        }
+      }
+    )
+    verifyForgotPassword(user?.email as string, forgot_password_token)
+    return {
+      message: USERS_MESSAGES.CHECK_EMAIL_TO_RESET_PASSWORD
+    }
+  }
+
+  async resetPassword(user_id: string, password: string) {
+    await databaseService.users.updateOne(
+      { _id: new ObjectId(user_id) },
+      {
+        $set: {
+          forgot_password_token: '',
+          password: hashPassword(password)
+        },
+        $currentDate: {
+          updated_at: true
+        }
+      }
+    )
+  }
 
 }
+
 const usersService = new UserService()
 export default usersService
