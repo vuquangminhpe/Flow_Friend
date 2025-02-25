@@ -1,13 +1,23 @@
 import { NextFunction, Request, Response } from "express";
 import { ParamsDictionary } from "express-serve-static-core";
-import { FollowReqBody, TokenPayload, RefreshTokenReqBody, VerifyEmailReqBody, ForgotPasswordReqBody } from "../models/request/User.request";
+import { 
+  FollowReqBody, 
+  TokenPayload, 
+  RefreshTokenReqBody, 
+  VerifyEmailReqBody, 
+  ForgotPasswordReqBody,
+  VerifyForgotPasswordReqBody,
+  ResetPasswordReqBody
+ } from "../models/request/User.request";
 import { config } from "dotenv";
 import { envConfig } from "../constants/config";
+import User from '~/models/schemas/User.schema'
 import usersService from "../services/users.services";
 import databaseService from '~/services/database.services'
 import { USERS_MESSAGES } from "../constants/messages";
 import HTTP_STATUS from '~/constants/httpStatus'
 import { WithId } from 'mongodb'
+import { ObjectId } from 'bson'
 import { UserVerifyStatus } from '~/constants/enums'
 
 config();
